@@ -78,3 +78,25 @@ int main() {
 
     return 0;
 }
+
+// DLL Export wrapper for loading in Python via ctypes
+extern "C" {
+    __declspec(dllexport) void run_harmonic_reduction_dll(float* h_data, float* h_out, int n) {
+        int threadsPerBlock = 32;
+        int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerBlock;
+        
+        float *d_data, *d_out;
+        cudaMalloc(&d_data, n * sizeof(float));
+        cudaMalloc(&d_out, blocksPerGrid * sizeof(float));
+        
+        cudaMemcpy(d_data, h_data, n * sizeof(float), cudaMemcpyHostToDevice);
+        
+        int sharedMemSize = (threadsPerBlock / 8) * 24 * sizeof(float);
+        harmonic_reduction_kernel<<<blocksPerGrid, threadsPerBlock, sharedMemSize>>>(d_data, d_out, n);
+        
+        cudaMemcpy(h_out, d_out, blocksPerGrid * sizeof(float), cudaMemcpyDeviceToHost);
+        
+        cudaFree(d_data);
+        cudaFree(d_out);
+    }
+}
