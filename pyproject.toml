@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "harmonic-vector-math"
+version = "1.0.0"
+description = "Vectorized Math and Optimizations for the Harmonic Engine"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "torch",
+    "numpy",
+    "pytest"
+]
+
+[tool.setuptools]
+py-modules = [
+    "harmonic_ops",
+    "harmonic_gemm_sparse",
+    "harmonic_transformer",
+    "harmonic_constants",
+    "metatron_compressor_engine"
+]
