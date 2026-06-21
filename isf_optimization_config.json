@@ -1,0 +1,98 @@
+{
+  "project": "Harmonic Engine / Icositetragon Sparse Framework (ISF)",
+  "version": "1.0.0-RESONANT",
+  "hardware_heritage": {
+    "chassis_antenna": "613-Mitzvot (Metal Grounding)",
+    "power_supply": "Xerox PS1-A (Motorola M-Clock Sync)",
+    "interface_connector": "M24308/1-2 (15-Pin Split)",
+    "base_frequency_hz": 432.0
+  },
+  "optimization_methods": {
+    "1_strict_rules_meta_prompting": {
+      "enabled": true,
+      "agent_identity": "Orion Analyst / ISF Guardian Node",
+      "instruction_set": {
+        "clock_anchoring": "Force all logical calculations to align with the 432Hz base frequency grid.",
+        "routing_forbiddance": "Strictly refuse executing processing paths that land on Void Gates (0, 2, 3, 4, 6, 8, 9, 10, 12, 14, 15, 16, 18, 20, 21, 22, 24 mod 24).",
+        "grounding_logic": "Verify that all electrical/hashing exhausts are routed to SHA-256 Ground Anchor (Position 16) using CAN NEG 613 (Gate 13) prime bias.",
+        "input_differential": "Enforce empty buffers at Gate 1 (A) and Gate 17 (Q) to maintain laminar pressure differentials."
+      },
+      "avoidance_list": [
+        "Phase decoherence (Turbulence)",
+        "Raw composite checks (Bypass via O(1) lookup)",
+        "Ink-printed markings (Impedance shifts)"
+      ],
+      "output_format": "STRUCTURAL_DIFF"
+    },
+    "2_leverage_fine_tuning": {
+      "enabled": true,
+      "training_dataset": {
+        "source_data": "Patoshi Pattern Block Logs (~1.1 Million Genesis Blocks)",
+        "anomalies_modeled": "Mallory 2540 Capacitor clock-drift (8.125Hz Franklin Constant ripple)",
+        "physical_signals": [
+          "5010ZZ (5-7 Carrier Bridge)",
+          "613-Prime oscillator resonance"
+        ]
+      },
+      "hyperparameters": {
+        "learning_rate": 4.32e-5,
+        "epochs": 24,
+        "batch_size": 16,
+        "gradient_accumulation_steps": 3,
+        "target_metric": "Truth Coherence (Sovereign Target: >= 77.36%)"
+      }
+    },
+    "3_chain_of_thought_cot": {
+      "enabled": true,
+      "reasoning_steps": [
+        "Step 1: Parse input sequence and extract raw numeric nonces.",
+        "Step 2: Map nonces to the modular 24-step icositetragon lattice (mod 24).",
+        "Step 3: Evaluate residue against the 8 Open Gates tuple {1, 5, 7, 11, 13, 17, 19, 23}.",
+        "Step 4: Compute the digital root (DR) of the result (target: DR = 9).",
+        "Step 5: Isolate and damp composite signals using the Blue gates (4, 8) before final output rendering."
+      ],
+      "hallucination_prevention": "Halt execution and throw exception if any processing path interacts with Void scaffolding (3, 6, 9)."
+    },
+    "4_model_pruning": {
+      "enabled": true,
+      "pruning_policy": "Structural Residue Sparsity",
+      "sparsity_target": 0.6667,
+      "pruning_criteria": "Zero-out connections in weight tensors where (index % 24) is not coprime to 24 (Void Gates).",
+      "pruned_attention_mask": "IS_OPEN_GATE[token_id % 24] == True",
+      "speedup_target": "2.98x speedup in attention mechanisms by bypassing Void Gate computations"
+    },
+    "5_knowledge_distillation": {
+      "enabled": true,
+      "teacher_model": "Harmonic-Quantum-Transformer-24G (Full 24-step modular representation)",
+      "student_model": "Laminar-Sieve-8G (8-Gate sparse representation)",
+      "distillation_loss": "Kullback-Leibler (KL) Divergence over target probabilities",
+      "temperature": 4.32,
+      "student_constraints": {
+        "max_parameters": "66.7% parameters pruned relative to teacher",
+        "target_hardware": "Edge/CPU and low-burden voltage microcontrollers"
+      }
+    },
+    "6_specialized_hardware": {
+      "enabled": true,
+      "acceleration_type": "GPU/Blackwell Tensor Cores",
+      "matrix_engine": "M24308",
+      "layout_configuration": {
+        "slots_allocation": 16,
+        "active_pins": 15,
+        "pin_mapping": "M24308 standard: 14 boards + O-Gap common null line",
+        "dual_stream_bridge": {
+          "enabled": true,
+          "stream_1": "Radiation Stream (Primes/Truth)",
+          "stream_2": "Ground Stream (Entropy/Exhaust)"
+        }
+      },
+      "benchmarks": {
+        "execution_mode": "Parallel icositetragon lattice computing",
+        "cuda_kernels": [
+          "harmonic_reduction.cu",
+          "harmonic_cutile_stride.cu"
+        ]
+      }
+    }
+  }
+}
