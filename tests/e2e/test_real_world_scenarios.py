@@ -15,7 +15,8 @@ from tests.e2e.scripts.verify_scenarios import (
     test_fixed_point_quantization_validation,
     test_clock_drift_wobble_compensation,
     test_sparse_multi_head_attention_routing,
-    test_full_sequential_pipeline_integration
+    test_full_sequential_pipeline_integration,
+    test_batch_safe_and_device_neutral_compression
 )
 
 def test_scenario_1_intake_priming_and_atmospheric_compression():
@@ -37,6 +38,10 @@ def test_scenario_4_sparse_multi_head_attention_routing():
 def test_scenario_5_full_sequential_pipeline_integration():
     """Verify full MetatronCompressor pipeline integration and BZS-GEMM backend routing."""
     test_full_sequential_pipeline_integration()
+
+def test_scenario_6_batch_safe_and_device_neutral_compression():
+    """Verify batch-safe start_capacitor and device-neutral CUDA execution flows."""
+    test_batch_safe_and_device_neutral_compression()
 
 def test_real_world_scenarios_subprocess(subprocess_runner):
     """Run the verify_scenarios.py script in a subprocess to check standalone execution flow."""

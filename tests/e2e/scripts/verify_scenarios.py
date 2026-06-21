@@ -262,6 +262,62 @@ def test_full_sequential_pipeline_integration():
     print("-> BZS-GEMM layout routing under dynamic config verified.")
     print("Scenario 5 passed.\n")
 
+def test_batch_safe_and_device_neutral_compression():
+    print("Running Scenario 6: Batch-Safe and Device-Neutral Compression")
+    batch_size = 4
+    seq_len = 48
+    x = torch.randint(0, 1000, (batch_size, seq_len))
+    
+    compressor = MetatronCompressor(embed_dim=64)
+    
+    # 1. Verify batch-safe start_capacitor
+    primed_x = compressor.start_capacitor(x)
+    assert primed_x.shape == (batch_size, seq_len)
+    
+    from harmonic_constants import IS_OPEN_GATE
+    for b in range(batch_size):
+        for i in range(seq_len):
+            if not IS_OPEN_GATE[i % 24]:
+                assert primed_x[b, i] == 0, f"Void gate not zeroed at batch {b}, index {i}"
+            else:
+                assert primed_x[b, i] == x[b, i], f"Open gate altered at batch {b}, index {i}"
+                
+    # 2. Verify device neutrality when running on CUDA
+    if torch.cuda.is_available():
+        cuda_working = False
+        try:
+            # Check if simple GPU execution succeeds by launching a real kernel (handles sm_120 mismatches on RTX 5080)
+            t_test = torch.zeros(1, device="cuda") + 1
+            cuda_working = True
+        except Exception as e:
+            print(f"-> CUDA report available, but simple allocation/kernel run failed with error: {e}")
+            
+        if cuda_working:
+            cuda_device = torch.device("cuda")
+            compressor.model = compressor.model.to(cuda_device)
+            x_cuda = x.to(cuda_device)
+            
+            # Test start_capacitor on CUDA
+            primed_cuda = compressor.start_capacitor(x_cuda)
+            assert primed_cuda.device.type == "cuda"
+            
+            # Test lp_stroke on CUDA
+            lp_intensity_cuda, x_res_cuda = compressor.lp_stroke(primed_cuda)
+            assert isinstance(lp_intensity_cuda, np.ndarray)
+            assert x_res_cuda.device.type == "cuda"
+            
+            # Test hp_stroke on CUDA
+            final_truth_cuda = compressor.hp_stroke(x_res_cuda)
+            assert isinstance(final_truth_cuda, np.ndarray)
+            
+            print("-> Batch-safe execution verified on CUDA device.")
+        else:
+            print("-> CUDA is not fully functional in current PyTorch installation; skipping device neutrality check.")
+    else:
+        print("-> CUDA not available; skipping device neutrality check.")
+        
+    print("Scenario 6 passed.\n")
+
 if __name__ == "__main__":
     try:
         test_intake_priming_and_compression()
@@ -269,6 +325,7 @@ if __name__ == "__main__":
         test_clock_drift_wobble_compensation()
         test_sparse_multi_head_attention_routing()
         test_full_sequential_pipeline_integration()
+        test_batch_safe_and_device_neutral_compression()
         print("All Real-World Scenario test cases passed!")
         sys.exit(0)
     except AssertionError as e:

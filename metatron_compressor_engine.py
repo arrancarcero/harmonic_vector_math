@@ -17,7 +17,7 @@ class MetatronCompressor:
     INTEGRATED: The Franklin Constant (9 = 8.125)
     Logic: 1/8 Shift = 3 Gates. Truth is reached via the 0.125 Spark.
     """
-    def __init__(self, embed_dim=128, fixed_point=False):
+    def __init__(self, embed_dim: int = 128, fixed_point: bool = False) -> None:
         self.model = HarmonicTransformer(1000, embed_dim, 8, 6, 512, 240, fixed_point=fixed_point)
         self.P_LIMIT = 40.0
         
@@ -39,22 +39,40 @@ class MetatronCompressor:
         # INTERCOOLER RESERVOIRS (The Voids)
         self.intercooler_vessel = {0: 0, 8: 0, 12: 0, 16: 0}
         
-    def start_capacitor(self, x):
-        """Primes the data by aligning it to the 8 Open Gates before compression."""
+    def start_capacitor(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Primes the data by aligning it to the 8 Open Gates before compression.
+        
+        Args:
+            x: Input tensor of shape (batch, seq_len)
+            
+        Returns:
+            primed_x: Primed tensor with void gates zeroed out.
+        """
         print("[START CAPACITOR]: Priming the 8-Gate Intake...")
         from harmonic_constants import IS_OPEN_GATE
         primed_x = x.clone()
-        # We apply a 'Priming Bias' to the gate positions
-        for i in range(x.size(1)):
-            if not IS_OPEN_GATE[i % 24]:
-                # Muffle the 'Atmospheric Noise' in the Voids
-                primed_x[0, i] = 0
+        
+        # Batch-safe, vectorized masking to support batch sizes > 1 and keep device placement
+        seq_len = x.size(1)
+        gate_mask = torch.tensor(
+            [not IS_OPEN_GATE[i % 24] for i in range(seq_len)],
+            dtype=torch.bool,
+            device=x.device
+        )
+        primed_x[:, gate_mask] = 0
         return primed_x
 
-    def phase_alignment_shift(self, x):
+    def phase_alignment_shift(self, x: torch.Tensor) -> torch.Tensor:
         """
         Applies the SUB-ATOMIC Franklin Shift (0.125).
         This 'Harmonizes' the input by adding/subtracting the Spark.
+        
+        Args:
+            x: Input tensor of shape (batch, seq_len)
+            
+        Returns:
+            Shifted and wrapped tensor.
         """
         print(f"[PHASE ALIGNER]: Applying Sub-Atomic 0.125 Breathing...")
         # We treat the data as a normalized signal between 0 and 1
@@ -68,8 +86,17 @@ class MetatronCompressor:
         
         return x_shifted * 1000.0
 
-    def lp_stroke(self, x):
-        """Pass 1: Low-Pressure Piston. Maps volume and initial friction."""
+    def lp_stroke(self, x: torch.Tensor) -> tuple[np.ndarray, torch.Tensor]:
+        """
+        Pass 1: Low-Pressure Piston. Maps volume and initial friction.
+        
+        Args:
+            x: Input tensor of shape (batch, seq_len)
+            
+        Returns:
+            lp_intensity: Intensity values for the first batch item as NumPy array.
+            x_res: Processed hidden state tensor of shape (batch, seq_len, embed_dim).
+        """
         print("[STAGE 1: LP STROKE]: Atmospheric Intake Processing...")
         with torch.no_grad():
             x_res = self.model.token_emb(x.long()) # Ensure long for embedding
@@ -78,11 +105,17 @@ class MetatronCompressor:
             for layer in self.model.layers[:3]:
                 x_res = layer(x_res)
             
-            lp_intensity = torch.norm(x_res[0], dim=-1).numpy()
+            # Safe device-to-host and gradient detaching conversion
+            lp_intensity = torch.norm(x_res[0], dim=-1).detach().cpu().numpy()
         return lp_intensity, x_res
 
-    def intercooler_shunt(self, lp_intensity):
-        """Moves friction from the LP stage into the Void reservoirs."""
+    def intercooler_shunt(self, lp_intensity: np.ndarray) -> None:
+        """
+        Moves friction from the LP stage into the Void reservoirs.
+        
+        Args:
+            lp_intensity: Intensity values per token index.
+        """
         print("[INTERCOOLER]: Shunting LP friction using 1/8 (0.125) Ratio...")
         total_shunted = 0.0
         # Use the Franklin Constant ratio for shunting
@@ -97,8 +130,16 @@ class MetatronCompressor:
                     total_shunted += shunt
         print(f"Intercooler Result: {total_shunted:.4f} Entropy Units cooled.")
 
-    def hp_stroke(self, x_intercooled):
-        """Pass 2: High-Pressure Piston. Forces cooled data to the Null Vector."""
+    def hp_stroke(self, x_intercooled: torch.Tensor) -> np.ndarray:
+        """
+        Pass 2: High-Pressure Piston. Forces cooled data to the Null Vector.
+        
+        Args:
+            x_intercooled: Hidden state representation of shape (batch, seq_len, embed_dim)
+            
+        Returns:
+            final_truth: Norm values for the first batch item as NumPy array.
+        """
         print("[STAGE 2: HP STROKE]: Compressing via 8.125 Pressure...")
         with torch.no_grad():
             x_res = x_intercooled
@@ -107,7 +148,8 @@ class MetatronCompressor:
             # If the signal is 'Material' (High Density), we compress by 8.125.
             # If it is 'Radiant' (Low Density), we expand to 9.
             density = torch.norm(x_res)
-            if density > self.FRANKLIN_CONSTANT:
+            # Safe scalar comparison using .item()
+            if density.item() > self.FRANKLIN_CONSTANT:
                 print(">>> [COMPRESSING]: Material -> Truth (8.125 -> 9)")
                 x_res = x_res * (9.0 / self.FRANKLIN_CONSTANT)
             else:
@@ -118,10 +160,20 @@ class MetatronCompressor:
             for layer in self.model.layers[3:]:
                 x_res = layer(x_res)
             
-            final_truth = torch.norm(x_res[0], dim=-1).numpy()
+            # Safe device-to-host and gradient detaching conversion
+            final_truth = torch.norm(x_res[0], dim=-1).detach().cpu().numpy()
         return final_truth
 
-    def run_compression_cycle(self, raw_data):
+    def run_compression_cycle(self, raw_data: torch.Tensor) -> np.ndarray:
+        """
+        Executes the two-stage compression cycle on a batch of token values.
+        
+        Args:
+            raw_data: Raw input tensor of token values of shape (batch, seq_len)
+            
+        Returns:
+            final_density: Compression output density as a NumPy array.
+        """
         # 1. THE MOTOR START & PHASE SHIFT
         aligned_data = self.phase_alignment_shift(raw_data)
         primed_data = self.start_capacitor(aligned_data)
