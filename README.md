@@ -28,6 +28,7 @@ harmonic_vector_math/
 ├── fixed_point_vectorization.py   # Vectorized integer scaling math benchmark (vs Decimal/Float)
 ├── prime_vectorization_proof.py   # Vectorized prime modular classification check
 ├── convergence_analyzer.py        # Analysis script for phase convergence cycles
+├── COMPLEXITY_ANALYSIS.md         # Comparative dissection of complexity classes & computing theory
 └── vectorized_math.py             # Basic vector optimization scripts
 ```
 
@@ -54,16 +55,23 @@ $$\theta = 2\pi \times \frac{\text{Franklin Constant}}{\text{Base Frequency}}$$
 
 ---
 
+## 📚 Complexity & Computability Foundations
+
+A detailed analysis comparing the Icositetragon Sparse Framework (ISF) to standard computer science complexity classes (P, NP, co-NP) and Turing computability models is documented in [COMPLEXITY_ANALYSIS.md](file:///C:/Users/Arran/harmonic_vector_math/COMPLEXITY_ANALYSIS.md).
+
+---
+
 ## 🛠️ Execution & E2E Verification
 
-To verify the codebase against the **80-case test suite** covering functional correctness, boundary limits, pairwise cross-feature integrations, and real-world pipelines:
+To verify the codebase against the **84-case test suite** covering functional correctness, boundary limits, custom compiled CUDA GPU library interfaces, pairwise cross-feature integrations, and real-world pipelines:
 
 ```powershell
 # Executing the complete pytest suite
 python -m pytest tests/e2e/ -v
 ```
 
-All 80 test cases must run cleanly with exit code `0`.
+All 84 test cases must run cleanly with exit code `0`.
 
 ---
 *Developed under Orion Security Intelligence Engine standards.*
+
