@@ -23,8 +23,7 @@ Let $n \in \mathbb{N}$ represent an integer index on the sequence coordinate lin
 | **Decidability** | Decides primality for all $n \in \mathbb{N}$. | Does **not** decide primality; filters divisibility by 2 and 3. |
 | **Search Space Reduction** | Scans 100% of candidate integers. | Prunes exactly $\frac{16}{24} = 66.67\%$ of composite candidates. |
 
-> [!IMPORTANT]
-> **Scientific Qualification:** The Open Gate Sieve is **not** an $O(1)$ primality test. It is a constant-time **coprimality pre-filter**. Any integer $p > 3$ that is prime must satisfy $p \pmod{24} \in \mathcal{G}$. However, the converse does not hold: many composite numbers (e.g., $25, 35, 49$) also land on Open Gates. For full primality verification, candidates passing the $O(1)$ filter must still be evaluated via standard deterministic (AKS) or probabilistic (Miller-Rabin) algorithms.
+> **Scientific Qualification:** The Open Gate Sieve is **not** an $O(1)$ primality test. It is a constant-time **coprimality pre-filter**. Any integer $p > 3$ that is prime must satisfy $p \equiv r \pmod{24}$ for some $r \in \{1,5,7,11,13,17,19,23\}$ (i.e., be in an Open Gate). However, the converse does not hold: many composite numbers (e.g., $25, 35, 49$) also land on Open Gates. For full primality verification, candidates passing the $O(1)$ filter must still be evaluated via standard deterministic (AKS) or probabilistic (Miller-Rabin) algorithms.
 
 ---
 
@@ -33,7 +32,7 @@ Let $n \in \mathbb{N}$ represent an integer index on the sequence coordinate lin
 Many optimization tasks within attention networks (such as optimal routing, key-value matching, and sparse quantization) represent NP-hard search problems.
 
 ### 2.1 Branching Factor Constraint
-In the `HarmonicAttention` module [harmonic_ops.py](harmonic_ops.py), weights and key-value projections are architectural restricted to indices $i$ where $i \pmod{24} \in \mathcal{G}$.
+In the `HarmonicAttention` module [harmonic_ops.py](https://github.com/arrancarcero/harmonic_vector_math/blob/main/harmonic_ops.py), weights and key-value projections are architectural restricted to indices $i$ where $i \pmod{24} \in \mathcal{G}$.
 
 For a sequence of length $N$ on a 24-coordinate lattice:
 *   **Standard Branching Space:** $24^N$ candidate paths.
@@ -42,7 +41,7 @@ For a sequence of length $N$ on a 24-coordinate lattice:
     $$\text{Compression Ratio} = \left(\frac{8}{24}\right)^N = \left(\frac{1}{3}\right)^N$$
 
 > [!NOTE]
-> This structural pruning does **not** alter the complexity class of NP-hard problems (which remain NP-hard). Instead, it dramatically reduces the coefficient of the search exponent, enabling significantly faster heuristic or brute-force search execution in practice.
+> This structural pruning does **not** alter the complexity class of NP-hard problems (which remain NP-hard). Instead, it dramatically reduces the coefficient of the search exponent, enabling significant practical speedups for heuristic and bounded-depth search, while leaving theoretical complexity unchanged.
 
 ---
 
@@ -53,7 +52,7 @@ The Kolmogorov complexity $K(x)$ of an arbitrary string $x$ measures the length 
 ### 3.1 Uncomputability and Heuristic Compressors
 As proved by Turing's Halting Problem, $K(x)$ is strictly **uncomputable** [3]. No algorithm can compute $K(x)$ for all inputs.
 
-The two-stage `MetatronCompressor` [metatron_compressor_engine.py](metatron_compressor_engine.py) does **not** solve Kolmogorov complexity. Instead, it serves as an empirical, lossy/lossless heuristic compressor for neural hidden state representations:
+The two-stage `MetatronCompressor` [metatron_compressor_engine.py](https://github.com/arrancarcero/harmonic_vector_math/blob/main/metatron_compressor_engine.py) does **not** solve Kolmogorov complexity. Instead, it serves as an empirical, lossy/lossless heuristic compressor for real-world data; it does not compute Kolmogorov complexity.
 1.  **Intake Phase:** Converts the raw input $X$ to $X_0$ by zeroing out the Void Gates:
     $$X_0 = \text{start\_capacitor}(X)$$
 2.  **Low-Pressure (LP) Stroke:** Computes the initial features through the first half of the network layers:
@@ -87,23 +86,23 @@ The `FixedPointTensor` utility implements fixed-point scaled arithmetic, represe
 > [!WARNING]
 > **Implementation Considerations:** When using fixed-point integer scaling, developers must watch out for:
 > 1.  **Integer Overflow:** Multiplication of large values can exceed standard `int64` limits ($2^{63}-1$).
-> 2.  **Mixed-Radix Operations:** Multiplicative scaling factors must be aligned (e.g., multiplying two scale-$10^4$ tensors yields a scale-$10^8$ result, requiring division by $10^4$ to normalize back).
+> 2.  **Mixed-Radix Operations:** Multiplicative scaling factors must be aligned (e.g., multiplying two scale-$10^4$ tensors yields a scale-$10^8$ result, requiring division by the scale factor to normalize and careful use of larger integer widths or saturation arithmetic to avoid overflow).
 
 ---
 
 ## 5. Computing Architecture: GPU Accelerators and Local Probes
 
 ### 5.1 GPU Acceleration as a "Hardware Oracle"
-We compile custom parallel CUDA libraries [harmonic_reduction.cu](harmonic_reduction.cu) and [harmonic_cutile_stride.cu](harmonic_cutile_stride.cu) and bind them via Python `ctypes`.
+We compile custom parallel CUDA libraries [harmonic_reduction.cu](https://github.com/arrancarcero/harmonic_vector_math/blob/main/harmonic_reduction.cu) and [harmonic_cutile_stride.cu](https://github.com/arrancarcero/harmonic_vector_math/blob/main/harmonic_cutile_stride.cu) and bind them via Python `ctypes`.
 *   **Theoretical Analogy:** The GPU acts as a "hardware oracle" in a practical sense by offloading parallel modular reduction operations from the sequential CPU runtime.
 *   **Zero-Copy Execution:** GPU pointers are passed directly using `ctypes.c_void_p(tensor.data_ptr())` to avoid host-device memory transfers.
 
 ### 5.2 Probabilistically Checkable Proof (PCP) Analogy
 The PCP Theorem [4] states that any NP proof can be verified with high probability by spot-checking a constant number of random bits.
-*   **Local Variance Checks:** In [harmonic_ops.py](harmonic_ops.py), the `Thermal Probe` computes the variance of a subset of attention scores:
+*   **Local Variance Checks:** In [harmonic_ops.py](https://github.com/arrancarcero/harmonic_vector_math/blob/main/harmonic_ops.py), the `Thermal Probe` computes the variance of a subset of attention scores:
     $$\sigma^2 = \text{Var}(S) = \frac{1}{M}\sum_{j=1}^M (S_j - \bar{S})^2$$
-*   **Algorithmic Damping:** If this local variance exceeds the dynamic boiling point threshold ($T_{\text{boiling\_effective}} = T_{\text{boiling}} \cdot (1 + \text{mean}(W_{\text{drift}}))$), it triggers a global coolant flush (`Cryo-Softmax`), dividing attention scores by $T_{\text{coolant}} = 0.5$ (which flattens the softmax distribution).
-*   **Verification Limits:** While this local variance tracking serves as a heuristic stability guard rather than a mathematically complete PCP proof system, it guarantees that out-of-bounds chaotic feedback loops are detected and resolved in $O(1)$ evaluation steps.
+*   **Algorithmic Damping:** If this local variance exceeds the dynamic boiling point threshold ($T_{\text{boiling\_effective}} = T_{\text{boiling}} \cdot (1 + \text{mean}(W_{\text{drift}}))$), the Thermal Probe applies damping to attention scores via `Cryo-Softmax` (dividing scores by $T_{\text{coolant}} = 0.5$, which flattens the softmax distribution). This is a heuristic guard: it improves stability but is not a formal PCP verifier.
+*   **Verification Limits:** While this local variance tracking serves as a heuristic stability guard rather than a mathematically complete PCP proof system, it guarantees that out-of-bounds chaotic activations are reduced in $O(1)$ evaluation steps.
 
 ---
 

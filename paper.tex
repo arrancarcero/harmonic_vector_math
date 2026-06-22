@@ -38,7 +38,7 @@ The core of the ISF relies on mapping the integer coordinate line to a 2D vector
     Signals passing through these gates are deterministically zeroed out to prevent computational interference.
 \end{itemize}
 
-\textbf{Scientific Qualification:} The Open Gate Sieve is not an $O(1)$ primality test. It is a constant-time coprimality pre-filter. Any prime $p > 3$ must satisfy $p \pmod{24} \in \mathcal{G}$, but the converse does not hold (e.g., $25, 35, 49$ are composite numbers that land on Open Gates). For full primality verification, candidates passing the filter must be evaluated via standard deterministic AKS [1] or probabilistic Miller-Rabin [2] algorithms.
+\textbf{Scientific Qualification:} The Open Gate Sieve is not an $O(1)$ primality test. It is a constant-time coprimality pre-filter. Any prime $p > 3$ must satisfy $p \equiv r \pmod{24}$ for some $r \in \{1, 5, 7, 11, 13, 17, 19, 23\}$ (i.e., be in an Open Gate). However, the converse does not hold: many composite numbers (e.g., $25, 35, 49$) also land on Open Gates. For full primality verification, candidates passing the filter must be evaluated via standard deterministic AKS [1] or probabilistic Miller-Rabin [2] algorithms.
 
 \section{Computational Complexity}
 \subsection{Exponent Reduction in NP}
@@ -49,10 +49,10 @@ Many neural configuration and routing problems are NP-hard. In the attention mod
 \end{itemize}
 This yields an exponential search space reduction:
 $$\text{Compression Ratio} = \left(\frac{8}{24}\right)^N = \left(\frac{1}{3}\right)^N$$
-While this structural pruning does not alter the complexity class of NP-hard problems, it dramatically reduces the coefficient of the search exponent, enabling faster heuristic or brute-force search execution.
+While this structural pruning does not alter the complexity class of NP-hard problems, it dramatically reduces the coefficient of the search exponent, enabling significant practical speedups for heuristic and bounded-depth search, while leaving theoretical complexity unchanged.
 
 \subsection{Kolmogorov Complexity Bounding}
-The Kolmogorov complexity $K(x)$ of an arbitrary string $x$ is strictly uncomputable [3]. The Metatron Compressor does not compute $K(x)$; instead, it serves as an empirical, lossy/lossless heuristic compressor for neural hidden state representations:
+The Kolmogorov complexity $K(x)$ of an arbitrary string $x$ is strictly uncomputable [3]. The Metatron Compressor does not compute $K(x)$; instead, it serves as an empirical, lossy/lossless heuristic compressor for real-world data; it does not compute Kolmogorov complexity.
 \begin{enumerate}
     \item \textbf{Intake Phase:} Converts the raw input $X$ to $X_0$ by zeroing out the Void Gates:
     $$X_0 = \text{start\_capacitor}(X)$$
@@ -74,10 +74,15 @@ $$s_{\text{tile}}[gate] = (idx < n) ? d_{\text{in}}[idx] : 0.0f$$
 
 Using a Python \texttt{ctypes} bridge, we map PyTorch GPU tensors directly to these kernels via their device pointers (\texttt{ctypes.c_void_p(tensor.data_ptr())}), achieving zero-copy hardware execution.
 
+\subsection{Thermal Damping and Probabilistic Verification}
+The Thermal Probe inside the attention module approximates sequence stability:
+$$\sigma^2 = \text{Var}(S) = \frac{1}{M}\sum_{j=1}^M (S_j - \bar{S})^2$$
+If this local variance exceeds the dynamic boiling point threshold ($T_{\text{boiling\_effective}} = T_{\text{boiling}} \cdot (1 + \text{mean}(W_{\text{drift}}))$), the Thermal Probe applies damping to attention scores via \texttt{Cryo-Softmax} (dividing scores by $T_{\text{coolant}} = 0.5$, which flattens the softmax distribution). This is a heuristic guard: it improves stability but is not a formal PCP verifier. It guarantees that out-of-bounds chaotic activations are reduced in $O(1)$ evaluation steps.
+
 \section{Empirical Results}
 We evaluated the ISF model against standard transformers. Scaled integer arithmetic (\texttt{FixedPointTensor}) running at scale $10^4$ was utilized to prevent floating-point rounding drift. Floor division is used to maintain precision:
 $$\text{Tax} = \lfloor \frac{\text{Cents} \times \text{Rate} + 5000}{10000} \rfloor$$
-Under a reproducible benchmark methodology on an AMD Ryzen 9 5900X CPU (12 cores, 24 threads @ 3.7GHz), 32GB DDR4 RAM, executing over $N = 500,000$ operations on Python 3.10, this vectorized integer math achieved a \textbf{~119x speedup} ($0.018$s vs. $2.146$s) compared to Python's sequential \texttt{Decimal} implementation while maintaining identical cent-level precision. When using fixed-point integer scaling, developers must watch out for integer overflow and mixed-radix alignment constraints.
+Under a reproducible benchmark methodology on an AMD Ryzen 9 5900X CPU (12 cores, 24 threads @ 3.7GHz), 32GB DDR4 RAM, executing over $N = 500,000$ operations on Python 3.10 (run via the script \texttt{fixed_point_vectorization.py}), this vectorized integer math achieved a \textbf{~119x speedup} ($0.018$s vs. $2.146$s) compared to Python's sequential \texttt{Decimal} implementation while maintaining identical cent-level precision. When using fixed-point integer scaling, developers must watch out for integer overflow, and mixed-radix operations requiring division by the scale factor to normalize and careful use of larger integer widths or saturation arithmetic to avoid overflow.
 
 \begin{table}[h]
 \centering
