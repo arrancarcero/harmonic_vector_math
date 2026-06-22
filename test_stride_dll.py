@@ -1,9 +1,11 @@
 import ctypes
+import sys
 import numpy as np
 import os
 
-# Load the DLL
-dll_path = os.path.abspath("harmonic_stride.dll")
+# Load the library
+suffix = ".dll" if sys.platform == "win32" else ".so"
+dll_path = os.path.abspath(f"harmonic_stride{suffix}")
 print(f"Loading DLL from {dll_path}...")
 cuda_lib = ctypes.CDLL(dll_path)
 

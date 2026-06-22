@@ -1,0 +1,50 @@
+name: Harmonic Engine CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Configure CUDA Environment
+      run: |
+        echo "Adding CUDA to PATH..."
+        echo "/usr/local/cuda/bin" >> $GITHUB_PATH
+        echo "LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+
+    - name: Verify NVCC Installation
+      run: nvcc --version
+
+    - name: Compile CUDA Shared Libraries
+      run: |
+        chmod +x compile_so.sh
+        ./compile_so.sh
+
+    - name: Install Python Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        # Install CPU version of PyTorch for faster runner downloads
+        pip install torch --index-url https://download.pytorch.org/ml/cpu
+        pip install numpy pytest anyio
+        pip install -e .
+
+    - name: Run E2E Test Suite
+      run: |
+        python -m pytest tests/e2e/ -v
+
+    - name: Execute Fixed-Point Vectorization Benchmark
+      run: |
+        python fixed_point_vectorization.py

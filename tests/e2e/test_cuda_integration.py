@@ -1,7 +1,11 @@
 import os
+import sys
 import ctypes
 import numpy as np
 import pytest
+
+# Determine platform-specific suffix for compiled shared libraries
+SUFFIX = ".dll" if sys.platform == "win32" else ".so"
 
 def get_dr(n_val):
     if n_val == 0:
@@ -10,8 +14,8 @@ def get_dr(n_val):
 
 def test_cuda_reduction_dll_execution():
     """Verify the compiled C++ CUDA reduction kernel via ctypes host wrapper."""
-    dll_path = os.path.abspath("harmonic_reduction.dll")
-    assert os.path.exists(dll_path), f"Reduction DLL not found at {dll_path}"
+    dll_path = os.path.abspath(f"harmonic_reduction{SUFFIX}")
+    assert os.path.exists(dll_path), f"Reduction library not found at {dll_path}"
     
     # Load the library
     cuda_lib = ctypes.CDLL(dll_path)
@@ -56,8 +60,8 @@ def test_cuda_reduction_dll_execution():
 
 def test_cuda_stride_dll_execution():
     """Verify the compiled C++ CUDA stride kernel via ctypes host wrapper."""
-    dll_path = os.path.abspath("harmonic_stride.dll")
-    assert os.path.exists(dll_path), f"Stride DLL not found at {dll_path}"
+    dll_path = os.path.abspath(f"harmonic_stride{SUFFIX}")
+    assert os.path.exists(dll_path), f"Stride library not found at {dll_path}"
     
     cuda_lib = ctypes.CDLL(dll_path)
     

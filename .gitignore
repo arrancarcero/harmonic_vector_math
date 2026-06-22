@@ -8,6 +8,7 @@ __pycache__/
 *.dll
 *.lib
 *.exp
+*.so
 
 # OS files
 .DS_Store

@@ -1,5 +1,6 @@
 import torch
 import ctypes
+import sys
 import os
 import numpy as np
 
@@ -14,14 +15,15 @@ def run_integration_test():
     else:
         print("Note: PyTorch is currently CPU-only. We will simulate direct GPU integration using host wrappers.")
 
-    # 2. Load DLLs
-    reduction_dll_path = os.path.abspath("harmonic_reduction.dll")
-    stride_dll_path = os.path.abspath("harmonic_stride.dll")
+    # 2. Load Libraries
+    suffix = ".dll" if sys.platform == "win32" else ".so"
+    reduction_dll_path = os.path.abspath(f"harmonic_reduction{suffix}")
+    stride_dll_path = os.path.abspath(f"harmonic_stride{suffix}")
     
-    print(f"Loading reduction DLL from {reduction_dll_path}...")
+    print(f"Loading reduction library from {reduction_dll_path}...")
     reduction_lib = ctypes.CDLL(reduction_dll_path)
     
-    print(f"Loading stride DLL from {stride_dll_path}...")
+    print(f"Loading stride library from {stride_dll_path}...")
     stride_lib = ctypes.CDLL(stride_dll_path)
 
     # Define function prototypes for direct GPU memory access
