@@ -33,7 +33,7 @@ Let $n \in \mathbb{N}$ represent an integer index on the sequence coordinate lin
 Many optimization tasks within attention networks (such as optimal routing, key-value matching, and sparse quantization) represent NP-hard search problems.
 
 ### 2.1 Branching Factor Constraint
-In the `HarmonicAttention` module [harmonic_ops.py](file:///C:/Users/Arran/harmonic_vector_math/harmonic_ops.py), weights and key-value projections are architectural restricted to indices $i$ where $i \pmod{24} \in \mathcal{G}$.
+In the `HarmonicAttention` module [harmonic_ops.py](harmonic_ops.py), weights and key-value projections are architectural restricted to indices $i$ where $i \pmod{24} \in \mathcal{G}$.
 
 For a sequence of length $N$ on a 24-coordinate lattice:
 *   **Standard Branching Space:** $24^N$ candidate paths.
@@ -53,7 +53,7 @@ The Kolmogorov complexity $K(x)$ of an arbitrary string $x$ measures the length 
 ### 3.1 Uncomputability and Heuristic Compressors
 As proved by Turing's Halting Problem, $K(x)$ is strictly **uncomputable** [3]. No algorithm can compute $K(x)$ for all inputs.
 
-The two-stage `MetatronCompressor` [metatron_compressor_engine.py](file:///C:/Users/Arran/harmonic_vector_math/metatron_compressor_engine.py) does **not** solve Kolmogorov complexity. Instead, it serves as an empirical, lossy/lossless heuristic compressor:
+The two-stage `MetatronCompressor` [metatron_compressor_engine.py](metatron_compressor_engine.py) does **not** solve Kolmogorov complexity. Instead, it serves as an empirical, lossy/lossless heuristic compressor:
 1.  **Low-Pressure (LP) Stroke:** Analyzes the initial high-dimensional representations of the input sequence.
 2.  **Intercooler Shunt:** Filters out high-frequency noise (entropy) by shunting it to the uncomputed Void Gates.
 3.  **High-Pressure (HP) Stroke:** Rescales the active representation toward a targeted variance density scale (9.0). This stabilizer acts as an empirical attractor to prevent neural activation explosion, rather than a mathematically proven fixed point for all arbitrary inputs.
@@ -68,7 +68,7 @@ High-precision calculation in software often forces a trade-off: fast but repres
 The `FixedPointTensor` utility implements fixed-point scaled arithmetic, representing decimal values as integers scaled by $10^4$.
 *   **Precision Guard:** Rounding-half-up is achieved using integer floor division:
     $$\text{Tax} = \lfloor \frac{\text{Cents} \times \text{Rate} + 5000}{10000} \rfloor$$
-*   **Speed Optimization:** In our micro-benchmarks [fixed_point_vectorization.py](file:///C:/Users/Arran/harmonic_vector_math/fixed_point_vectorization.py) executing over $N = 500,000$ operations on an x64 processor, this vectorized integer math achieved a **>100x speedup** compared to Python's sequential `Decimal` implementation while maintaining identical cent-level precision.
+*   **Speed Optimization:** In our micro-benchmarks [fixed_point_vectorization.py](fixed_point_vectorization.py) executing over $N = 500,000$ operations on an x64 processor, this vectorized integer math achieved a **>100x speedup** compared to Python's sequential `Decimal` implementation while maintaining identical cent-level precision.
 
 > [!WARNING]
 > **Implementation Considerations:** When using fixed-point integer scaling, developers must watch out for:
@@ -80,13 +80,13 @@ The `FixedPointTensor` utility implements fixed-point scaled arithmetic, represe
 ## 5. Computing Architecture: GPU Accelerators and Local Probes
 
 ### 5.1 GPU Acceleration as a "Hardware Oracle"
-We compile custom parallel CUDA libraries [harmonic_reduction.cu](file:///C:/Users/Arran/harmonic_vector_math/harmonic_reduction.cu) and [harmonic_cutile_stride.cu](file:///C:/Users/Arran/harmonic_vector_math/harmonic_cutile_stride.cu) and bind them via Python `ctypes`.
+We compile custom parallel CUDA libraries [harmonic_reduction.cu](harmonic_reduction.cu) and [harmonic_cutile_stride.cu](harmonic_cutile_stride.cu) and bind them via Python `ctypes`.
 *   **Theoretical Analogy:** The GPU acts as a "hardware oracle" in a practical sense by offloading parallel modular reduction operations from the sequential CPU runtime.
 *   **Zero-Copy Execution:** GPU pointers are passed directly using `ctypes.c_void_p(tensor.data_ptr())` to avoid host-device memory transfers.
 
 ### 5.2 Probabilistically Checkable Proof (PCP) Analogy
 The PCP Theorem [4] states that any NP proof can be verified with high probability by spot-checking a constant number of random bits.
-*   **Local Variance Checks:** In [harmonic_ops.py](file:///C:/Users/Arran/harmonic_vector_math/harmonic_ops.py), the `Thermal Probe` computes the variance of a subset of attention scores (`torch.var(scores)`).
+*   **Local Variance Checks:** In [harmonic_ops.py](harmonic_ops.py), the `Thermal Probe` computes the variance of a subset of attention scores (`torch.var(scores)`).
 *   **Damping Feedback:** If this local spot-check indicates that the variance (entropy) exceeds the boiling point threshold, it triggers a global coolant flush (`Cryo-Softmax`). This heuristic stabilizer is inspired by the PCP concept of spot-checking to avoid full-sequence computation overhead.
 
 ---

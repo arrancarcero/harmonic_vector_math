@@ -57,7 +57,7 @@ $$\theta = 2\pi \times \frac{\text{Franklin Constant}}{\text{Base Frequency}}$$
 
 ## 📚 Complexity & Computability Foundations
 
-A detailed analysis comparing the Icositetragon Sparse Framework (ISF) to standard computer science complexity classes (P, NP, co-NP) and Turing computability models is documented in [COMPLEXITY_ANALYSIS.md](file:///C:/Users/Arran/harmonic_vector_math/COMPLEXITY_ANALYSIS.md).
+A detailed analysis comparing the Icositetragon Sparse Framework (ISF) to standard computer science complexity classes (P, NP, co-NP) and Turing computability models is documented in [COMPLEXITY_ANALYSIS.md](COMPLEXITY_ANALYSIS.md).
 
 ---
 
