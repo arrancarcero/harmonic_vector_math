@@ -99,4 +99,11 @@ extern "C" {
         cudaFree(d_data);
         cudaFree(d_out);
     }
+
+    __declspec(dllexport) void run_harmonic_reduction_direct_gpu(float* d_data, float* d_out, int n) {
+        int threadsPerBlock = 32;
+        int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerBlock;
+        int sharedMemSize = (threadsPerBlock / 8) * 24 * sizeof(float);
+        harmonic_reduction_kernel<<<blocksPerGrid, threadsPerBlock, sharedMemSize>>>(d_data, d_out, n);
+    }
 }

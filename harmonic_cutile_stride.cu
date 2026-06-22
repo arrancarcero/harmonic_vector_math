@@ -36,9 +36,7 @@ __global__ void harmonic_stride_kernel(float* d_in, float* d_out, int n) {
     int gate = OPEN_GATES[tid];
     int global_idx = (blockIdx.x * 24 * stride) + gate;
 
-    if (global_idx < n) {
-        s_tile[gate] = d_in[global_idx];
-    }
+    s_tile[gate] = (global_idx < n) ? d_in[global_idx] : 0.0f;
     __syncthreads();
 
     // --- Phase 2: Anti-Feedback Reduction ---
@@ -53,5 +51,28 @@ __global__ void harmonic_stride_kernel(float* d_in, float* d_out, int n) {
     }
 }
 
-// Note: To compile for RTX 5080 Blackwell:
-// nvcc -arch=sm_100 harmonic_cutile_stride.cu -o harmonic_stride.exe
+// DLL Export wrapper for loading in Python via ctypes
+extern "C" {
+    __declspec(dllexport) void run_harmonic_stride_dll(float* h_data, float* h_out, int n, int blocksPerGrid) {
+        float *d_data, *d_out;
+        cudaMalloc(&d_data, n * sizeof(float));
+        cudaMalloc(&d_out, blocksPerGrid * sizeof(float));
+        
+        cudaMemcpy(d_data, h_data, n * sizeof(float), cudaMemcpyHostToDevice);
+        
+        int sharedMemSize = 24 * sizeof(float);
+        int threadsPerBlock = 8;
+        harmonic_stride_kernel<<<blocksPerGrid, threadsPerBlock, sharedMemSize>>>(d_data, d_out, n);
+        
+        cudaMemcpy(h_out, d_out, blocksPerGrid * sizeof(float), cudaMemcpyDeviceToHost);
+        
+        cudaFree(d_data);
+        cudaFree(d_out);
+    }
+
+    __declspec(dllexport) void run_harmonic_stride_direct_gpu(float* d_data, float* d_out, int n, int blocksPerGrid) {
+        int sharedMemSize = 24 * sizeof(float);
+        int threadsPerBlock = 8;
+        harmonic_stride_kernel<<<blocksPerGrid, threadsPerBlock, sharedMemSize>>>(d_data, d_out, n);
+    }
+}
