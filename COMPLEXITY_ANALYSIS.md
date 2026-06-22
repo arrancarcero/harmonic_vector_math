@@ -6,75 +6,94 @@ This document provides a comparative analysis between the **Icositetragon Sparse
 
 ## 1. Modular Sieve vs. Traditional Primality Verification
 
-Traditional mathematics relies on division-based sieves or complex probabilistic tests to determine structural properties of numbers:
+Traditional number theory employs primality testing algorithms to evaluate the structural properties of integers. The ISF uses a modular grid to perform initial structural filtering.
 
-| Metric | Traditional Mathematics | Icositetragon Sparse Framework (ISF) |
+### 1.1 Formal Definitions of Gates
+Let $n \in \mathbb{N}$ represent an integer index on the sequence coordinate line.
+*   **Open Gates ($\mathcal{G}$):** The set of residues modulo 24 that are coprime to 24:
+    $$\mathcal{G} = \{r \in \mathbb{Z}_{24} \mid \gcd(r, 24) = 1\} = \{1, 5, 7, 11, 13, 17, 19, 23\}$$
+*   **Void Gates ($\mathcal{V}$):** The set of residues modulo 24 that share common factors with 24 (non-coprimes):
+    $$\mathcal{V} = \{r \in \mathbb{Z}_{24} \mid \gcd(r, 24) > 1\} = \{0, 2, 3, 4, 6, 8, 9, 10, 12, 14, 15, 16, 18, 20, 21, 22\}$$
+
+### 1.2 Comparison of Filtering Mechanics
+
+| Metric | Traditional Primality Testing | Icositetragon Coprimality Pre-Filter (ISF) |
 | :--- | :--- | :--- |
-| **Complexity Class** | **AKS Primality Test:** $O(\log^6 n)$ (Deterministic)<br>**Trial Division:** $O(\sqrt{n})$ | **Open Gate Sieve:** $O(1)$ constant-time lookup |
-| **Mechanics** | Performs dynamic modular division checks sequentially. | Evaluates static congruence index mapping: $n \pmod{24} \in \text{OPEN\_GATES}$. |
-| **Search Space** | Scans 100% of the integer sequence space. | Instantly prunes **66.67% of composite lanes** (the 16 Void Gates). |
+| **Complexity Class** | **AKS Algorithm [1]:** $O(\log^6 n)$ (Deterministic)<br>**Miller-Rabin [2]:** $O(k \log^3 n)$ (Probabilistic) | **Coprimality Mask:** $O(1)$ constant-time lookup |
+| **Decidability** | Decides primality for all $n \in \mathbb{N}$. | Does **not** decide primality; filters divisibility by 2 and 3. |
+| **Search Space Reduction** | Scans 100% of candidate integers. | Prunes exactly $\frac{16}{24} = 66.67\%$ of composite candidates. |
 
-### Mathematical Duality:
-While finding whether a number is prime is in $P$, integer factorization (finding prime witnesses) is not known to be in $P$. The ISF does not calculate primes directly; instead, it acts as a **coprime filter**. Because all primes $p > 3$ land strictly on the 8 Open Gates ($1, 5, 7, 11, 13, 17, 19, 23 \pmod{24}$), the system can deterministically reject composite-lane interference in a single instruction step.
+> [!IMPORTANT]
+> **Scientific Qualification:** The Open Gate Sieve is **not** an $O(1)$ primality test. It is a constant-time **coprimality pre-filter**. Any integer $p > 3$ that is prime must satisfy $p \pmod{24} \in \mathcal{G}$. However, the converse does not hold: many composite numbers (e.g., $25, 35, 49$) also land on Open Gates. For full primality verification, candidates passing the $O(1)$ filter must still be evaluated via standard deterministic (AKS) or probabilistic (Miller-Rabin) algorithms.
 
 ---
 
 ## 2. Complexity Theory: Search Space Reduction in NP
 
-Many optimization problems (e.g., Travelling Salesman, optimal neural weight routing, matrix factorization) lie in **NP** or are **NP-hard**. Finding the optimal path requires traversing an exponential search space.
+Many optimization tasks within attention networks (such as optimal routing, key-value matching, and sparse quantization) represent NP-hard search problems.
 
-### Exponent Reduction Mapping:
+### 2.1 Branching Factor Constraint
+In the `HarmonicAttention` module [harmonic_ops.py](file:///C:/Users/Arran/harmonic_vector_math/harmonic_ops.py), weights and key-value projections are architectural restricted to indices $i$ where $i \pmod{24} \in \mathcal{G}$.
+
 For a sequence of length $N$ on a 24-coordinate lattice:
-*   **Traditional Search Space:** $24^N$ possible state paths.
-*   **ISF Search Space:** $8^N$ possible state paths.
+*   **Standard Branching Space:** $24^N$ candidate paths.
+*   **ISF Restricted Space:** $8^N$ candidate paths.
+*   **Dimensionality Reduction:** The candidate search space is scaled down by a factor of:
+    $$\text{Compression Ratio} = \left(\frac{8}{24}\right)^N = \left(\frac{1}{3}\right)^N$$
 
-$$\text{Search Space Compression Ratio} = \frac{8^N}{24^N} = \left(\frac{1}{3}\right)^N$$
-
-Although the problem class remains in **NP**, reducing the base of the exponent from $24$ to $8$ represents an exponential reduction in the actual search space. A sequence of length $N=10$ is compressed from **$6.3 \times 10^{13}$ states** to just **$1.07 \times 10^7$ states**, making NP-hard path-finding algorithms solvable in practical terms.
+> [!NOTE]
+> This structural pruning does **not** alter the complexity class of NP-hard problems (which remain NP-hard). Instead, it dramatically reduces the coefficient of the search exponent, enabling significantly faster heuristic or brute-force search execution in practice.
 
 ---
 
 ## 3. Computability: Bounding Kolmogorov Complexity
 
-In computability theory, the **Kolmogorov complexity** $K(x)$ of a string is the size of the shortest program that can generate it. 
+The Kolmogorov complexity $K(x)$ of an arbitrary string $x$ measures the length of the shortest computer program that outputs $x$. 
 
-```
-                                  [ Kolmogorov Complexity K(x) ]
-                                                | (Uncomputable)
-                    ==========================================================
-                    |                                                        |
-         [ Traditional Compression ]                               [ Metatron Engine ]
-             (Computable Limit)                                   (Renormalization Flow)
-                    |                                                        |
-    Uses statistical token frequencies                      Maps data to Open/Void lattices,
-    (e.g., LZW, Huffman) to code elements.                  shunting chaotic entropy out via LP/HP
-                                                            strokes to a stable fixed-point at 9.0.
-```
+### 3.1 Uncomputability and Heuristic Compressors
+As proved by Turing's Halting Problem, $K(x)$ is strictly **uncomputable** [3]. No algorithm can compute $K(x)$ for all inputs.
 
-*   **Traditional Methods:** Statistical algorithms (like Huffman or LZW) compress data based on token frequency tables. They are bounded by Shannon entropy limits and cannot capture higher-order algebraic relations.
-*   **The Metatron Engine:** Implements a **computable Renormalization Group (RG) Flow**. The two-stage compressor maps high-dimensional inputs to the modular grid, integrates out high-frequency fluctuations (shunting them to the Void Gates during the intercooler phase), and projects the signal toward a stable fixed-point density ($9.0$). This provides a fast, deterministic polynomial-time ($P$) upper bound on Kolmogorov complexity.
+The two-stage `MetatronCompressor` [metatron_compressor_engine.py](file:///C:/Users/Arran/harmonic_vector_math/metatron_compressor_engine.py) does **not** solve Kolmogorov complexity. Instead, it serves as an empirical, lossy/lossless heuristic compressor:
+1.  **Low-Pressure (LP) Stroke:** Analyzes the initial high-dimensional representations of the input sequence.
+2.  **Intercooler Shunt:** Filters out high-frequency noise (entropy) by shunting it to the uncomputed Void Gates.
+3.  **High-Pressure (HP) Stroke:** Rescales the active representation toward a targeted variance density scale (9.0). This stabilizer acts as an empirical attractor to prevent neural activation explosion, rather than a mathematically proven fixed point for all arbitrary inputs.
 
 ---
 
 ## 4. Arithmetic: Scaled Integer SIMD vs. Floating Point / Decimal
 
-Mathematical computing has long faced a trade-off between **precision** and **speed**:
+High-precision calculation in software often forces a trade-off: fast but representationally rounding-prone floating-point types (IEEE-754) vs. exact but slow arbitrary-precision packages (such as Python's `decimal.Decimal`).
 
-1.  **IEEE-754 Floating-Point Arithmetic:** Highly optimized at the hardware level (SIMD/GPU tensor cores), but prone to rounding accumulation errors and underflow at boundary limits.
-2.  **Arbitrary-Precision Decimal Math (e.g., Python `Decimal`):** 100% precision, but processed sequentially on the CPU, resulting in a severe performance bottleneck.
+### 4.1 Scaled Integer Vectorization Benchmarks
+The `FixedPointTensor` utility implements fixed-point scaled arithmetic, representing decimal values as integers scaled by $10^4$.
+*   **Precision Guard:** Rounding-half-up is achieved using integer floor division:
+    $$\text{Tax} = \lfloor \frac{\text{Cents} \times \text{Rate} + 5000}{10000} \rfloor$$
+*   **Speed Optimization:** In our micro-benchmarks [fixed_point_vectorization.py](file:///C:/Users/Arran/harmonic_vector_math/fixed_point_vectorization.py) executing over $N = 500,000$ operations on an x64 processor, this vectorized integer math achieved a **>100x speedup** compared to Python's sequential `Decimal` implementation while maintaining identical cent-level precision.
 
-### Scaled Integer Vectorization:
-The `FixedPointTensor` class resolves this conflict by mapping decimal/float values onto scaled integers (e.g., scale factor $10^4$). 
-*   **Round-Half-Up Duality:** Fractions are converted to fast integer operations:
-    $$\text{Tax} = \lfloor \frac{\text{Cents} \times \text{Rate} + \text{Half-Divisor}}{\text{Divisor}} \rfloor$$
-*   **Result:** Exact mathematical precision is maintained while leveraging native SIMD/Tensor Core integer matrix multiplication, resulting in a **>100x speedup** over traditional sequential decimal packages.
+> [!WARNING]
+> **Implementation Considerations:** When using fixed-point integer scaling, developers must watch out for:
+> 1.  **Integer Overflow:** Multiplication of large values can exceed standard `int64` limits ($2^{63}-1$).
+> 2.  **Mixed-Radix Operations:** Multiplicative scaling factors must be aligned (e.g., multiplying two scale-$10^4$ tensors yields a scale-$10^8$ result, requiring dynamic division to normalize).
 
 ---
 
-## 5. Computing Architecture: GPU Oracles & interactive Proofs
+## 5. Computing Architecture: GPU Accelerators and Local Probes
 
-The physical-digital mapping in the Harmonic Engine parallels modern computational models:
+### 5.1 GPU Acceleration as a "Hardware Oracle"
+We compile custom parallel CUDA libraries [harmonic_reduction.cu](file:///C:/Users/Arran/harmonic_vector_math/harmonic_reduction.cu) and [harmonic_cutile_stride.cu](file:///C:/Users/Arran/harmonic_vector_math/harmonic_cutile_stride.cu) and bind them via Python `ctypes`.
+*   **Theoretical Analogy:** The GPU acts as a "hardware oracle" in a practical sense by offloading parallel modular reduction operations from the sequential CPU runtime.
+*   **Zero-Copy Execution:** GPU pointers are passed directly using `ctypes.c_void_p(tensor.data_ptr())` to avoid host-device memory transfers.
 
-*   **Turing Reductions:** By loading the custom compiled libraries (`harmonic_reduction.dll` and `harmonic_stride.dll`) via `ctypes`, the Python runtime (Turing Machine) offloads massive array calculations to the GPU. The GPU acts as a **physical oracle**, solving complex stride alignments in a single step ($O(1)$) relative to the CPU clock:
-    $$\text{Attention}(X) \le_T \text{GPU\_Oracle}$$
-*   **PCP Theorem (Spot-Checking):** In [harmonic_ops.py](file:///C:/Users/Arran/harmonic_vector_math/harmonic_ops.py), the **Thermal Probe** computes local variance rather than performing full-sequence entropy calculations. Like a Probabilistically Checkable Proof, the verifier spot-checks local segments of the sequence to verify correctness (stability) and prevent chaotic non-halting states.
+### 5.2 Probabilistically Checkable Proof (PCP) Analogy
+The PCP Theorem [4] states that any NP proof can be verified with high probability by spot-checking a constant number of random bits.
+*   **Local Variance Checks:** In [harmonic_ops.py](file:///C:/Users/Arran/harmonic_vector_math/harmonic_ops.py), the `Thermal Probe` computes the variance of a subset of attention scores (`torch.var(scores)`).
+*   **Damping Feedback:** If this local spot-check indicates that the variance (entropy) exceeds the boiling point threshold, it triggers a global coolant flush (`Cryo-Softmax`). This heuristic stabilizer is inspired by the PCP concept of spot-checking to avoid full-sequence computation overhead.
+
+---
+
+## References
+
+*   [1] Agrawal, M., Kayal, N., & Saxena, N. (2004). PRIMES is in P. *Annals of Mathematics*, 160(2), 781-793.
+*   [2] Rabin, M. O. (1980). Probabilistic algorithm for testing primality. *Journal of Number Theory*, 12(1), 128-138.
+*   [3] Kolmogorov, A. N. (1965). Three approaches to the quantitative definition of information. *Problems of Information Transmission*, 1(1), 1-7.
+*   [4] Arora, S., Lund, C., Motwani, R., Sudan, M., & Szegedy, M. (1998). Proof verification and the hardness of approximation algorithms. *Journal of the ACM*, 45(3), 501-555.
