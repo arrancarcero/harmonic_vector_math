@@ -6,18 +6,15 @@ import math
 class ZeroSparseGEMM(nn.Module):
     """
     Refined Bucketed Zero-Sparse Shard MatMul (BZS-GEMM)
-    
-    Optimizations:
-    1. Static Grounding: Uses a shared 'Void Reservoir' for all non-resonant gates.
-    2. Tile-Aware Sharding: Simulates hardware-level dispatch to 8 resonant units.
-    3. Memory Reuse: Minimizes allocations during the 'Laminar' extraction.
-    4. M24308 Layout: Splits computations into 16-slot blocks with common null (slot 15) and empty pads (slots 1 & 17).
-    5. Dual-Stream Bridge: Separate Radiation (Primes) and Ground (Exhaust) streams.
     """
     def __init__(self, in_features, out_features, fixed_point=False, backend="auto"):
         super().__init__()
-        if out_features % 8 != 0:
-            raise ValueError("out_features must be divisible by 8")
+        # Keep track of the original requested output size
+        self._original_out_features = out_features
+        # Internally pad out_features to a multiple of 8 for shard allocation
+        padded_out = ((out_features + 7) // 8) * 8
+        self._padded_out_features = padded_out
+
         if backend not in ["auto", "generic", "M24308"]:
             raise ValueError(f"Invalid backend: {backend}")
         self._backend = backend
@@ -30,22 +27,18 @@ class ZeroSparseGEMM(nn.Module):
         from harmonic_ops import load_config
         self.config = load_config()
 
-
         # Resonant Shards (The 8-Gate Sanctuary)
+        shard_size = padded_out // 8
         self.gate_shards = nn.ParameterList([
-            nn.Parameter(torch.randn(out_features // 8, in_features) / math.sqrt(in_features))
+            nn.Parameter(torch.randn(shard_size, in_features) / math.sqrt(in_features))
             for _ in range(8)
         ])
         
         # The 'Void Reservoir' - A low-precision anchor for 3-6-9 nodes.
-        self.register_buffer("void_anchor", torch.zeros(1, out_features))
+        self.register_buffer("void_anchor", torch.zeros(1, padded_out))
         self.register_buffer("resonant_mask_idx", torch.tensor(self.open_gates))
         
         # M24308 standard 16-slot mapping mask:
-        # Slot 1 is index 0 of the 16-slot block.
-        # Slot 15 is index 14 of the 16-slot block.
-        # Slot 17 is index 16 (index 0 of the next 16-slot block).
-        # We mask index 0 (mod 16) and index 14 (mod 16).
         pin_mask = torch.ones(in_features, dtype=torch.bool)
         for i in range(in_features):
             if (i % 16) == 0 or (i % 16) == 14:
@@ -82,10 +75,10 @@ class ZeroSparseGEMM(nn.Module):
                 out = out_fp.to_float()
             else:
                 out = torch.matmul(x, concatenated_weights.t())
-            return out
+            # Trim to original out_features
+            return out[:, :, :self._original_out_features]
 
         batch_size, seq_len, dim = x.shape
-        
         # Apply M24308 pin layout mapping to input features
         x = x * self.pin_mask.view(1, 1, -1)
         
@@ -95,7 +88,6 @@ class ZeroSparseGEMM(nn.Module):
         resonant_mask = torch.any(indices.unsqueeze(1) == self.resonant_mask_idx, dim=1)
         
         # 2. Dual Stream Bridge
-        # Stream 1: Radiation Stream (active primes/truth logic)
         x_resonant = x[:, resonant_mask, :]
         
         # Stream 2: Ground Stream (entropy/exhaust redirected to void reservoir)
@@ -119,7 +111,8 @@ class ZeroSparseGEMM(nn.Module):
         out = self.void_anchor.repeat(batch_size, seq_len, 1)
         out[:, resonant_mask, :] = laminar_out
         
-        return out
+        # Trim to the originally requested output features
+        return out[:, :, :self._original_out_features]
 
 class FullHarmonicTransformerLayer(nn.Module):
     """
@@ -147,6 +140,7 @@ class FullHarmonicTransformerLayer(nn.Module):
     def forward(self, x):
         # 1. Harmonic Attention (Fractal / Block-Resonant Implementation)
         resid = x
+        orig_seq_len = x.shape[1]
         x = self.norm1(x)
         
         # BZS-GEMM Projections (Already 33.3% sparse)
@@ -155,10 +149,20 @@ class FullHarmonicTransformerLayer(nn.Module):
         v = self.v_proj(x).view(x.shape[0], x.shape[1], self.heads, -1).transpose(1, 2)
         
         # --- FRACTAL BLOCK-RESONANT ATTENTION ---
-        # Instead of a global N/3 matrix, we process in 'Grand Cycle' blocks (size 24)
-        # to ensure O(N) memory scaling.
         batch, heads, seq_len, head_dim = q.shape
         block_size = 24
+        # Pad sequence to full blocks if necessary
+        pad_len = (-seq_len) % block_size
+        if pad_len:
+            pad_q = torch.zeros(batch, heads, pad_len, head_dim, device=q.device, dtype=q.dtype)
+            pad_k = torch.zeros_like(pad_q)
+            pad_v = torch.zeros_like(pad_q)
+            q = torch.cat([q, pad_q], dim=2)
+            k = torch.cat([k, pad_k], dim=2)
+            v = torch.cat([v, pad_v], dim=2)
+            # Also pad the residual for later addition
+            resid = torch.cat([resid, torch.zeros(batch, pad_len, self.dim, device=resid.device, dtype=resid.dtype)], dim=1)
+            seq_len = q.shape[2]
         num_blocks = seq_len // block_size
         
         # Reshape into blocks
@@ -174,7 +178,6 @@ class FullHarmonicTransformerLayer(nn.Module):
         v_res = v_blocks[:, :, :, resonant_mask, :]
         
         # Block-Local Resonant Attention: (8 x 8) matrix per block
-        # Total memory: num_blocks * (8 * 8), which is LINEAR O(N)
         attn_res = torch.matmul(q_res, k_res.transpose(-2, -1)) / math.sqrt(head_dim)
         attn_res = torch.softmax(attn_res, dim=-1)
         
@@ -201,80 +204,8 @@ class FullHarmonicTransformerLayer(nn.Module):
         x = self.ff2(torch.relu(self.ff1(x)))
         x = x + resid
         
+        # Slice back to original sequence length if we padded
+        if x.shape[1] != orig_seq_len:
+            x = x[:, :orig_seq_len, :]
+        
         return x
-
-def benchmark_full_harmonic():
-    device = "cpu"
-    if torch.cuda.is_available():
-        try:
-            # Verify CUDA execution works on this system/hardware configuration (RTX 5080 sm_120 compatibility check)
-            _ = torch.randn(1, device="cuda")
-            device = "cuda"
-        except Exception:
-            pass
-    print(f"--- TITAN STRESS TEST: 1M TOKEN SPARSITY (BZS-GEMM) ---")
-    print(f"Device: {device.upper()}")
-    
-    # TITAN SCALE: 1 Million Tokens (Multiple of 24) on GPU, scaled down on CPU to avoid OOM
-    bs = 1
-    seq = 999984 if device == "cuda" else 24000
-    dim = 256
-    heads = 4
-    iterations = 5
-    
-    # Standard Transformer (Simulated)
-    class StandardLayer(nn.Module):
-        def __init__(self, dim, heads):
-            super().__init__()
-            self.qkv = nn.Linear(dim, dim * 3)
-            self.o = nn.Linear(dim, dim)
-            self.ff1 = nn.Linear(dim, dim * 4)
-            self.ff2 = nn.Linear(dim * 4, dim)
-            self.norm1 = nn.LayerNorm(dim)
-            self.norm2 = nn.LayerNorm(dim)
-        def forward(self, x):
-            resid = x
-            x = self.norm1(x)
-            _ = self.qkv(x)
-            x = self.o(x) + resid
-            resid = x
-            x = self.norm2(x)
-            x = self.ff2(torch.relu(self.ff1(x))) + resid
-            return x
-
-    std_layer = StandardLayer(dim, heads).to(device)
-    har_layer = FullHarmonicTransformerLayer(dim, heads).to(device)
-    
-    # Pre-allocate input to ensure we don't count allocation time
-    input_tensor = torch.randn(bs, seq, dim, device=device)
-    
-    print(f"Processing {seq:,} tokens through the 8-Gate Sanctuary...")
-    
-    # Warmup
-    for _ in range(2):
-        _ = std_layer(input_tensor)
-        _ = har_layer(input_tensor)
-    
-    if device == "cuda": torch.cuda.synchronize()
-    
-    # Benchmark Standard
-    start = time.time()
-    for _ in range(iterations):
-        _ = std_layer(input_tensor)
-    if device == "cuda": torch.cuda.synchronize()
-    std_time = (time.time() - start) / iterations
-    
-    # Benchmark Harmonic
-    start = time.time()
-    for _ in range(iterations):
-        _ = har_layer(input_tensor)
-    if device == "cuda": torch.cuda.synchronize()
-    har_time = (time.time() - start) / iterations
-    
-    print(f"\nStandard Transformer Latency: {std_time*1000:.2f} ms")
-    print(f"Full Harmonic (BZS-GEMM) Latency: {har_time*1000:.2f} ms")
-    print(f"Total System Speedup: {std_time/har_time:.2f}x")
-    print(f"Computational Entropy Filtered: {seq * (2/3):,.0f} tokens bypassed.")
-
-if __name__ == "__main__":
-    benchmark_full_harmonic()
