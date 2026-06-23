@@ -1,8 +1,11 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from harmonic_ops import HarmonicAttention
+from harmonic_ops import HarmonicAttention, load_config
 import math
+
+# Load config once at module import to avoid repeated I/O per layer
+GLOBAL_HARMONIC_CONFIG = load_config()
 
 class HarmonicTransformerBlock(nn.Module):
     def __init__(self, embed_dim, num_heads, ff_dim, dropout=0.1, fixed_point=False):
@@ -12,9 +15,8 @@ class HarmonicTransformerBlock(nn.Module):
         self.norm1 = nn.LayerNorm(embed_dim)
         self.norm2 = nn.LayerNorm(embed_dim)
         
-        # Load optimization config with mtime caching
-        from harmonic_ops import load_config
-        self.config = load_config()
+        # Reuse global config loaded once at module import
+        self.config = GLOBAL_HARMONIC_CONFIG
         
         specialized_hw = False
         try:
@@ -29,8 +31,10 @@ class HarmonicTransformerBlock(nn.Module):
             from harmonic_gemm_sparse import ZeroSparseGEMM
             self.ff1 = ZeroSparseGEMM(embed_dim, ff_dim, fixed_point=fixed_point)
             self.ff2 = ZeroSparseGEMM(ff_dim, embed_dim, fixed_point=fixed_point)
+            # keep dropout inside the FF path; avoid applying dropout twice
             self.dropout_ff = nn.Dropout(dropout)
         else:
+            # include dropout here and avoid applying outer dropout when adding residual
             self.ff = nn.Sequential(
                 nn.Linear(embed_dim, ff_dim),
                 nn.GELU(),
@@ -46,9 +50,11 @@ class HarmonicTransformerBlock(nn.Module):
             x_ff = F.gelu(self.ff1(self.norm2(x)))
             x_ff = self.dropout_ff(x_ff)
             x_ff = self.ff2(x_ff)
-            x = x + self.dropout(x_ff)
+            # x_ff already had dropout applied (dropout_ff); avoid double dropout
+            x = x + x_ff
         else:
-            x = x + self.dropout(self.ff(self.norm2(x)))
+            # ff contains its own dropout, so don't apply the outer dropout again
+            x = x + self.ff(self.norm2(x))
         return x
 
 class ResonantPositionalEncoding(nn.Module):
@@ -59,6 +65,10 @@ class ResonantPositionalEncoding(nn.Module):
     def __init__(self, embed_dim, max_seq_len):
         super().__init__()
         self.embed_dim = embed_dim
+        
+        # require even embed_dim for alternating sin/cos encoding
+        if embed_dim % 2 != 0:
+            raise ValueError("embed_dim must be even for sinusoidal positional encoding")
         
         # We create a standard Sinusoidal base, but quantize frequencies to Mod-24
         pe = torch.zeros(max_seq_len, embed_dim)
@@ -74,11 +84,9 @@ class ResonantPositionalEncoding(nn.Module):
         
         # The 'Resonance Factor': We amplify positions that land on 'Open Gates'
         from harmonic_constants import IS_OPEN_GATE
-        for i in range(max_seq_len):
-            if IS_OPEN_GATE[i % 24]:
-                pe[i, :] *= 1.5 # Boost the 'Radiation' signal for prime-aligned positions
-            else:
-                pe[i, :] *= 0.5 # Muffle the 'Void' signal
+        # Vectorized mask: create scaling factors for each position
+        mask_vals = torch.tensor([1.5 if IS_OPEN_GATE[i % 24] else 0.5 for i in range(max_seq_len)], dtype=pe.dtype)
+        pe = pe * mask_vals.unsqueeze(1)
                 
         self.register_buffer('pe', pe.unsqueeze(0))
 
@@ -130,6 +138,7 @@ if __name__ == "__main__":
     NUM_LAYERS = 2
     FF_DIM = 128
     MAX_SEQ_LEN = 24  # One full Grand Cycle
+    torch.manual_seed(0)
     
     model = HarmonicTransformer(VOCAB_SIZE, EMBED_DIM, NUM_HEADS, NUM_LAYERS, FF_DIM, MAX_SEQ_LEN)
     
